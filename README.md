@@ -1,8 +1,8 @@
 # password_access_system
 
 
-### ACCESS GRANTED
+#### ACCESS GRANTED
 <img src="data/access_granted.gif">
 
-### ACCESS DENIED
+#### ACCESS DENIED
 <img src="data/access_denied.gif">
