@@ -1,0 +1,219 @@
+#include <inttypes.h>
+#include <avr/io.h>
+#include <avr/interrupt.h>
+#include <avr/sleep.h>
+#include<util/delay.h>
+#include<string.h> 
+
+
+#define  KEY_PRT PORTC
+#define  KEY_DDR DDRC
+#define  KEY_PIN PINC
+#define LCD_DPRT PORTA
+#define LCD_DDDR DDRA
+#define LCD_DPIN PINA
+#define LCD_CPRT PORTB
+#define LCD_CDDR DDRB
+#define LCD_CPIN PINB
+#define LCD_RS 0
+#define LCD_RW 1
+#define LCD_EN 2
+
+void delay_us(unsigned int d)
+{
+	_delay_us(d);
+}
+
+void lcdCommand(unsigned char cmnd)
+{
+	LCD_DPRT =cmnd;
+	LCD_CPRT &= ~(1<<LCD_RS);
+    LCD_CPRT &= ~(1<<LCD_RW);
+	LCD_CPRT |= (1<<LCD_EN);
+	delay_us(1);
+    LCD_CPRT &= ~(1<<LCD_EN);
+	delay_us(100);
+}
+void lcdData(unsigned char data)
+{
+	LCD_DPRT =data;
+	LCD_CPRT |= (1<<LCD_RS);
+    LCD_CPRT &= ~(1<<LCD_RW);
+	LCD_CPRT |= (1<<LCD_EN);
+	delay_us(1);
+    LCD_CPRT &= ~(1<<LCD_EN);
+	delay_us(100);
+}
+void lcd_init()
+{
+	LCD_DDDR= 0XFF;
+	LCD_CDDR= 0XFF;
+	LCD_CPRT &= ~(1<<LCD_EN);
+	delay_us(2000);
+	lcdCommand(0x38);
+	lcdCommand(0x0E);
+	lcdCommand(0x01);
+	delay_us(2000);
+	lcdCommand(0x06);
+}
+
+char compareArray(char a[],char b[])	
+{
+	char i;
+	for(i=0;i<4;i++)
+	   {
+		if(a[i]!=b[i])
+			return 1;
+	    }
+   return 0;
+}
+
+void lcd_gotoxy(unsigned char x, unsigned char y)
+{
+	unsigned char firstCharAdr[]= {0X80,0XC0,0X94,0XD4};
+	lcdCommand(firstCharAdr[y-1] + x-1);
+	delay_us(100);
+}
+
+void lcd_print(char * str)
+{
+   unsigned char i = 0;
+   while(str[i] !=0)
+   {
+   lcdData(str[i]);
+      i++;
+   }
+}
+
+void delay_ms(unsigned int d)
+{
+   _delay_ms(d);
+}
+
+
+
+int main()
+ {
+    //unsigned char line1 = ":Hello...";
+    //unsigned char line2 = "Pressed KEY";
+    char keypad[4] [4] = {{'C','D','E','F'},{'8','9','A','B'},{'4','5','6','7'},{'0','1','2','3'}};
+    char k[4];
+    char p[4] = {'0','1','2','3'};
+    char s = 0;
+    lcd_init();
+    
+   unsigned char colloc, rowloc;
+   DDRD = 0xFF;
+   KEY_DDR = 0xF0;
+   KEY_PRT = 0xFF;
+   while(1)
+   {
+      lcdCommand(0x01);
+      lcd_gotoxy(6,1);    
+      lcd_print("Enter");
+      lcd_gotoxy(5,2);    
+      lcd_print("Password");
+      
+      
+      while(s<4)
+      {
+      
+     do
+     {
+	 KEY_PRT &= 0x0F;
+	colloc = (KEY_PIN & 0x0F);
+     }	while(colloc != 0x0F);
+     
+     do
+     {
+	do
+	{
+	   delay_ms(20);
+	   colloc = (KEY_PIN & 0x0F);
+	}while(colloc == 0x0F);
+	
+	delay_ms(20);
+	colloc = (KEY_PIN & 0x0F);
+     }while(colloc == 0x0F);
+     
+     while(1)
+     {
+	KEY_PRT = 0xEF;
+	colloc = (KEY_PIN & 0x0F);
+	 if(colloc != 0x0F)
+	 {
+	    rowloc = 0;
+	    break;
+	 }
+	 
+	 KEY_PRT = 0xDF;
+	 colloc = (KEY_PIN & 0x0F);
+	 if(colloc != 0x0F)
+	 {
+	   rowloc = 1;
+	   break;
+	 }
+	 
+	 KEY_PRT = 0xBF;
+	 colloc = (KEY_PIN & 0x0F);
+	 if(colloc != 0x0F)
+	 {
+	   rowloc = 2;
+	   break;
+	 }
+	 
+	 KEY_PRT = 0x7F;
+	 colloc = (KEY_PIN & 0x0F);
+	 rowloc = 3;
+	 break;
+      }
+	 if(colloc == 0x0E)
+	 {
+	   k[s] = keypad[rowloc][0];
+	    s++;
+	    delay_ms(300);
+	 }
+	 else if(colloc == 0x0D)
+	 {
+	   k[s] = keypad[rowloc][1];
+	    s++;
+	    delay_ms(300);
+	 }
+	 else if(colloc == 0x0B)
+	 {
+	    k[s] = keypad[rowloc][2];
+	    s++;
+	    delay_ms(300);
+	 }
+	 else
+	 {
+	    k[s] = keypad[rowloc][3];
+	    s++;
+	    delay_ms(300);
+	 }
+      }
+      if(compareArray(k,p))
+      {
+	 lcdCommand(0x01);
+	 lcd_gotoxy(6,1);    
+	 lcd_print("ACCESS");
+	 lcd_gotoxy(6,2);    
+	 lcd_print("DENIED");
+	 PORTD = 0x01;
+	 delay_ms(1000);
+      }
+      else
+      {
+	 lcdCommand(0x01);
+	 lcd_gotoxy(6,1); 
+	 lcd_print("ACCESS");
+	 lcd_gotoxy(6,2); 
+	 lcd_print("GRANTED");
+	 PORTD = 0x02;
+	 delay_ms(1000);
+      }
+      PORTD = 0x00;
+      s = 0;   
+   }
+   return 0;
+ }
